@@ -31,15 +31,23 @@
       flex-shrink: 0;
     }
 
-    #limpar {
+    #limpar, #toggleAudio {
       position: absolute;
-      right: 15px;
       top: 15px;
       background: none;
       border: none;
-      color: #aaa;
       font-size: 1em;
       cursor: pointer;
+    }
+
+    #limpar {
+      right: 15px;
+      color: #aaa;
+    }
+
+    #toggleAudio {
+      left: 15px;
+      color: #25d366;
     }
 
     main {
@@ -156,6 +164,7 @@
   <header>
     ASSISTENTE GRUPO DV
     <button id="limpar" onclick="limparHistorico()">🗑️</button>
+    <button id="toggleAudio">🔇 Áudio: Desativado</button>
   </header>
 
   <main id="chat"></main>
@@ -169,11 +178,17 @@
   <script>
     const ENDPOINT = "https://script.google.com/macros/s/AKfycbzi4Hu9W6OFnAPaiFHRNCwLn08tnq2ghgmQ2RnaXJl59rqujSmX8dOg16RlUcuTZC6W/exec";
     const chat = document.getElementById("chat");
+    let audioAtivado = false;
 
     window.onload = () => {
       const historico = JSON.parse(localStorage.getItem("historicoDV") || "[]");
       historico.forEach(({ tipo, texto }) => adicionarMensagem(texto, tipo));
       chat.scrollTop = chat.scrollHeight;
+
+      document.getElementById("toggleAudio").onclick = () => {
+        audioAtivado = !audioAtivado;
+        document.getElementById("toggleAudio").innerText = audioAtivado ? "🔊 Áudio: Ativado" : "🔇 Áudio: Desativado";
+      };
     };
 
     document.getElementById("pergunta").addEventListener("keypress", function(e) {
@@ -220,6 +235,12 @@
           if (d) chat.removeChild(d);
           adicionarMensagem(resposta, "assistente");
           salvarNoHistorico("assistente", resposta);
+
+          if (audioAtivado) {
+            const utterance = new SpeechSynthesisUtterance(resposta);
+            utterance.lang = "pt-BR";
+            speechSynthesis.speak(utterance);
+          }
         })
         .catch(err => {
           const d = document.getElementById("digitando");
