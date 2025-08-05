@@ -193,7 +193,16 @@
       toggleAudioBtn.onclick = () => {
         audioAtivado = !audioAtivado;
         toggleAudioBtn.innerText = audioAtivado ? "🔊" : "🔇";
-        if (!audioAtivado) speechSynthesis.cancel();
+
+        if (!audioAtivado) {
+          speechSynthesis.cancel();
+        } else {
+          // Libera permissão no iOS
+          const startMsg = new SpeechSynthesisUtterance("Áudio ativado");
+          startMsg.lang = "pt-BR";
+          startMsg.rate = 1.4;
+          speechSynthesis.speak(startMsg);
+        }
       };
     };
 
@@ -243,14 +252,13 @@
           salvarNoHistorico("assistente", resposta);
 
           if (audioAtivado) {
-            // Limpar emojis e símbolos
             let textoLimpo = resposta
               .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '')
               .replace(/[/*+_#|~^`$%\\=\[\]{}<>@]/g, '')
               .replace(/\s{2,}/g, ' ')
               .trim();
 
-            // Adiciona "reais" a valores numéricos (mesmo sem R$)
+            // Adiciona "reais" a valores numéricos
             textoLimpo = textoLimpo.replace(/(?:R\$)?\s*([\d.]+(?:,\d{2})?)/g, (match, valor) => {
               return `${valor.replace('.', '').replace(',', '.')} reais`;
             });
@@ -258,7 +266,7 @@
             const utterance = new SpeechSynthesisUtterance(textoLimpo);
             utterance.lang = "pt-BR";
             utterance.rate = 1.4;
-            speechSynthesis.cancel(); // Garante que não sobrepõe
+            speechSynthesis.cancel();
             speechSynthesis.speak(utterance);
           }
         })
