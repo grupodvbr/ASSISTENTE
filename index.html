@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Assistente DV</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #111b21;
+      color: #e9edef;
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background-color: #202c33;
+      padding: 15px;
+      text-align: center;
+      font-size: 1.2em;
+      color: #25d366;
+      font-weight: bold;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    #limpar {
+      position: absolute;
+      right: 15px;
+      top: 15px;
+      background: none;
+      border: none;
+      color: #aaa;
+      font-size: 1em;
+      cursor: pointer;
+    }
+
+    main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .mensagem {
+      max-width: 75%;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 1em;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      box-shadow: 0 1px 1px #0003;
+    }
+
+    .usuario {
+      align-self: flex-end;
+      background-color: #005c4b;
+      color: white;
+      border-bottom-right-radius: 0;
+    }
+
+    .assistente {
+      align-self: flex-start;
+      background-color: #202c33;
+      color: #e9edef;
+      border-bottom-left-radius: 0;
+    }
+
+    .input-container {
+      background-color: #202c33;
+      padding: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-top: 1px solid #000;
+      flex-shrink: 0;
+    }
+
+    input {
+      flex: 1;
+      padding: 10px 15px;
+      border-radius: 20px;
+      border: none;
+      outline: none;
+      font-size: 1em;
+      background-color: #2a3942;
+      color: #e9edef;
+    }
+
+    input::placeholder {
+      color: #aaa;
+    }
+
+    .icon-button {
+      background: none;
+      border: none;
+      padding: 8px;
+      cursor: pointer;
+      font-size: 1.2em;
+      color: #25d366;
+    }
+
+    .digitando {
+      align-self: flex-start;
+      background-color: #202c33;
+      border-radius: 8px;
+      padding: 10px 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .digitando span {
+      width: 6px;
+      height: 6px;
+      background-color: #e9edef;
+      border-radius: 50%;
+      display: inline-block;
+      animation: pulso 1.4s infinite ease-in-out both;
+    }
+
+    .digitando span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .digitando span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes pulso {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1); }
+    }
+
+    @media (max-width: 600px) {
+      input {
+        font-size: 1em;
+      }
+
+      .icon-button {
+        font-size: 1.2em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    🤖 Assistente DV
+    <button id="limpar" onclick="limparHistorico()">🗑️</button>
+  </header>
+
+  <main id="chat"></main>
+
+  <div class="input-container">
+    <input id="pergunta" type="text" placeholder="Digite sua pergunta..." />
+    <button class="icon-button" onclick="iniciarReconhecimento()" title="Falar">🎤</button>
+    <button class="icon-button" onclick="enviarPergunta()" title="Enviar">➤</button>
+  </div>
+
+  <script>
+    // NOVO ENDPOINT COM OPENAI + PLANILHAS
+    const ENDPOINT = "https://assistente-3qdk6mz0v-nalbert-souzas-projects.vercel.app/api/ask";
+    const chat = document.getElementById("chat");
+
+    window.onload = () => {
+      const historico = JSON.parse(localStorage.getItem("historicoDV") || "[]");
+      historico.forEach(({ tipo, texto }) => adicionarMensagem(texto, tipo));
+      chat.scrollTop = chat.scrollHeight;
+    };
+
+    document.getElementById("pergunta").addEventListener("keypress", function(e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        enviarPergunta();
+      }
+    });
+
+    function salvarNoHistorico(tipo, texto) {
+      const historico = JSON.parse(localStorage.getItem("historicoDV") || "[]");
+      historico.push({ tipo, texto });
+      localStorage.setItem("historicoDV", JSON.stringify(historico));
+    }
+
+    function adicionarMensagem(texto, classe) {
+      const msg = document.createElement("div");
+      msg.className = `mensagem ${classe}`;
+      msg.innerText = texto;
+      chat.appendChild(msg);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function enviarPergunta() {
+      const input = document.getElementById("pergunta");
+      const pergunta = input.value.trim();
+      if (!pergunta) return;
+
+      adicionarMensagem(pergunta, "usuario");
+      salvarNoHistorico("usuario", pergunta);
+      input.value = "";
+
+      const digitando = document.createElement("div");
+      digitando.className = "digitando";
+      digitando.innerHTML = `<span></span><span></span><span></span>`;
+      digitando.id = "digitando";
+      chat.appendChild(digitando);
+      chat.scrollTop = chat.scrollHeight;
+
+      fetch(`${ENDPOINT}?q=${encodeURIComponent(pergunta)}`)
+        .then(res => res.text())
+        .then(resposta => {
+          const d = document.getElementById("digitando");
+          if (d) chat.removeChild(d);
+          adicionarMensagem(resposta, "assistente");
+          salvarNoHistorico("assistente", resposta);
+        })
+        .catch(err => {
+          const d = document.getElementById("digitando");
+          if (d) chat.removeChild(d);
+          const erro = "❌ Erro: " + err.message;
+          adicionarMensagem(erro, "assistente");
+          salvarNoHistorico("assistente", erro);
+        });
+    }
+
+    function limparHistorico() {
+      if (confirm("Deseja apagar o histórico da conversa?")) {
+        localStorage.removeItem("historicoDV");
+        chat.innerHTML = "";
+      }
+    }
+
+    const Reconhecimento = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const reconhecimento = new Reconhecimento();
+    reconhecimento.lang = "pt-BR";
+    reconhecimento.continuous = false;
+    reconhecimento.interimResults = false;
+
+    function iniciarReconhecimento() {
+      adicionarMensagem("🎙️ Ouvindo...", "assistente");
+      reconhecimento.start();
+    }
+
+    reconhecimento.onresult = function(event) {
+      const texto = event.results[0][0].transcript;
+
+      const chat = document.getElementById("chat");
+      if (chat.lastChild && chat.lastChild.innerText === "🎙️ Ouvindo...") {
+        chat.removeChild(chat.lastChild);
+      }
+
+      document.getElementById("pergunta").value = texto;
+      enviarPergunta();
+    }
+
+    reconhecimento.onerror = function(event) {
+      const erro = "❌ Erro no reconhecimento de voz: " + event.error;
+      adicionarMensagem(erro, "assistente");
+      salvarNoHistorico("assistente", erro);
+    }
+  </script>
+</body>
+</html>
