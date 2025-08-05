@@ -193,6 +193,7 @@
       toggleAudioBtn.onclick = () => {
         audioAtivado = !audioAtivado;
         toggleAudioBtn.innerText = audioAtivado ? "🔊" : "🔇";
+        if (!audioAtivado) speechSynthesis.cancel();
       };
     };
 
