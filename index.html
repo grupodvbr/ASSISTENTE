@@ -31,23 +31,27 @@
       flex-shrink: 0;
     }
 
-    #limpar, #toggleAudio {
+    #limpar {
       position: absolute;
+      right: 15px;
       top: 15px;
       background: none;
       border: none;
+      color: #aaa;
       font-size: 1em;
       cursor: pointer;
     }
 
-    #limpar {
-      right: 15px;
-      color: #aaa;
-    }
-
     #toggleAudio {
+      position: absolute;
       left: 15px;
-      color: #25d366;
+      top: 15px;
+      background: none;
+      border: none;
+      color: #888;
+      font-size: 1em;
+      cursor: pointer;
+      padding: 0;
     }
 
     main {
@@ -164,7 +168,7 @@
   <header>
     ASSISTENTE GRUPO DV
     <button id="limpar" onclick="limparHistorico()">🗑️</button>
-    <button id="toggleAudio">🔇 Áudio: Desativado</button>
+    <button id="toggleAudio" title="Ativar/desativar áudio">🔇</button>
   </header>
 
   <main id="chat"></main>
@@ -185,9 +189,10 @@
       historico.forEach(({ tipo, texto }) => adicionarMensagem(texto, tipo));
       chat.scrollTop = chat.scrollHeight;
 
-      document.getElementById("toggleAudio").onclick = () => {
+      const toggleAudioBtn = document.getElementById("toggleAudio");
+      toggleAudioBtn.onclick = () => {
         audioAtivado = !audioAtivado;
-        document.getElementById("toggleAudio").innerText = audioAtivado ? "🔊 Áudio: Ativado" : "🔇 Áudio: Desativado";
+        toggleAudioBtn.innerText = audioAtivado ? "🔊" : "🔇";
       };
     };
 
@@ -237,8 +242,15 @@
           salvarNoHistorico("assistente", resposta);
 
           if (audioAtivado) {
-            const utterance = new SpeechSynthesisUtterance(resposta);
+            const textoLimpo = resposta
+              .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '')
+              .replace(/[/*+_#|~^`$%\\=\[\]{}<>@]/g, '')
+              .replace(/\s{2,}/g, ' ')
+              .trim();
+
+            const utterance = new SpeechSynthesisUtterance(textoLimpo);
             utterance.lang = "pt-BR";
+            utterance.rate = 1.4;
             speechSynthesis.speak(utterance);
           }
         })
@@ -271,12 +283,9 @@
 
     reconhecimento.onresult = function(event) {
       const texto = event.results[0][0].transcript;
-
-      const chat = document.getElementById("chat");
       if (chat.lastChild && chat.lastChild.innerText === "🎙️ Ouvindo...") {
         chat.removeChild(chat.lastChild);
       }
-
       document.getElementById("pergunta").value = texto;
       enviarPergunta();
     }
