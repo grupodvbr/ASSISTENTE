@@ -58,6 +58,7 @@
       gap: 10px;
     }
     .mensagem {
+      position: relative;
       max-width: 75%;
       padding: 12px 16px;
       border-radius: 8px;
@@ -85,12 +86,12 @@
     }
     .copiar-btn {
       position: absolute;
-      top: 10px;
+      bottom: 8px;
       right: 10px;
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.05);
       border: none;
       border-radius: 6px;
-      padding: 6px;
+      padding: 4px;
       cursor: pointer;
       transition: background 0.2s ease;
       display: flex;
@@ -101,8 +102,8 @@
       background: rgba(255, 255, 255, 0.2);
     }
     .copiar-btn svg {
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
       fill: #ccc;
     }
     .copiar-btn.copiado::after {
@@ -181,7 +182,7 @@
 <body>
   <header>
     ASSISTENTE GRUPO DV
-    <button id="limpar" onclick="limparHistorico()">🗑️</button>
+    <button id="limpar" onclick="limparHistorico()" title="Apagar histórico">🗑️</button>
     <button id="toggleAudio" title="Ativar/desativar áudio">🔇</button>
   </header>
   <main id="chat"></main>
@@ -190,14 +191,17 @@
     <button class="icon-button" onclick="iniciarReconhecimento()" title="Falar">🎤</button>
     <button class="icon-button" onclick="enviarPergunta()" title="Enviar">➤</button>
   </div>
+
   <script>
     const ENDPOINT = "https://script.google.com/macros/s/AKfycbzi4Hu9W6OFnAPaiFHRNCwLn08tnq2ghgmQ2RnaXJl59rqujSmX8dOg16RlUcuTZC6W/exec";
     const chat = document.getElementById("chat");
     let audioAtivado = false;
+
     window.onload = () => {
       const historico = JSON.parse(localStorage.getItem("historicoDV") || "[]");
       historico.forEach(({ tipo, texto }) => adicionarMensagem(texto, tipo));
       chat.scrollTop = chat.scrollHeight;
+
       const toggleAudioBtn = document.getElementById("toggleAudio");
       toggleAudioBtn.onclick = () => {
         audioAtivado = !audioAtivado;
@@ -212,22 +216,26 @@
         }
       };
     };
+
     document.getElementById("pergunta").addEventListener("keypress", function(e) {
       if (e.key === "Enter") {
         e.preventDefault();
         enviarPergunta();
       }
     });
+
     function salvarNoHistorico(tipo, texto) {
       const historico = JSON.parse(localStorage.getItem("historicoDV") || "[]");
       historico.push({ tipo, texto });
       localStorage.setItem("historicoDV", JSON.stringify(historico));
     }
+
     function adicionarMensagem(texto, classe) {
       const msg = document.createElement("div");
       msg.className = `mensagem ${classe}`;
       msg.innerHTML = texto;
-      if (classe === "assistente") {
+
+      if (classe === "assistente" && !texto.startsWith("❌")) {
         const btn = document.createElement("button");
         btn.className = "copiar-btn";
         btn.title = "Copiar texto";
@@ -235,9 +243,11 @@
         btn.onclick = () => copiarTexto(btn);
         msg.appendChild(btn);
       }
+
       chat.appendChild(msg);
       chat.scrollTop = chat.scrollHeight;
     }
+
     function copiarTexto(botao) {
       const texto = botao.parentElement.innerText;
       navigator.clipboard.writeText(texto).then(() => {
@@ -247,6 +257,7 @@
         }, 2000);
       });
     }
+
     function enviarPergunta() {
       const input = document.getElementById("pergunta");
       const pergunta = input.value.trim();
@@ -254,12 +265,14 @@
       adicionarMensagem(pergunta, "usuario");
       salvarNoHistorico("usuario", pergunta);
       input.value = "";
+
       const digitando = document.createElement("div");
       digitando.className = "digitando";
       digitando.innerHTML = `<span></span><span></span><span></span>`;
       digitando.id = "digitando";
       chat.appendChild(digitando);
       chat.scrollTop = chat.scrollHeight;
+
       fetch(`${ENDPOINT}?q=${encodeURIComponent(pergunta)}`)
         .then(res => res.text())
         .then(resposta => {
@@ -267,15 +280,17 @@
           if (d) chat.removeChild(d);
           adicionarMensagem(resposta, "assistente");
           salvarNoHistorico("assistente", resposta);
+
           if (audioAtivado) {
             let textoLimpo = resposta
               .replace(/<[^>]+>/g, '')
               .replace(/[�-�][�-�]/g, '')
               .replace(/[/*+_#|~^`$%\=\[\]{}<>@]/g, '')
-              .replace(/\s{2,}/g, ' ');
-            textoLimpo = textoLimpo.replace(/(?:R\$)?\s*([\d.]+(?:,\d{2})?)/g, (match, valor) => {
-              return `${valor.replace('.', '').replace(',', '.')} reais`;
-            });
+              .replace(/\s{2,}/g, ' ')
+              .replace(/(?:R\$)?\s*([\d.]+(?:,\d{2})?)/g, (_, valor) => {
+                return `${valor.replace('.', '').replace(',', '.')} reais`;
+              });
+
             const utterance = new SpeechSynthesisUtterance(textoLimpo);
             utterance.lang = "pt-BR";
             utterance.rate = 1.4;
@@ -291,21 +306,25 @@
           salvarNoHistorico("assistente", erro);
         });
     }
+
     function limparHistorico() {
       if (confirm("Deseja apagar o histórico da conversa?")) {
         localStorage.removeItem("historicoDV");
         chat.innerHTML = "";
       }
     }
+
     const Reconhecimento = window.SpeechRecognition || window.webkitSpeechRecognition;
     const reconhecimento = new Reconhecimento();
     reconhecimento.lang = "pt-BR";
     reconhecimento.continuous = false;
     reconhecimento.interimResults = false;
+
     function iniciarReconhecimento() {
       adicionarMensagem("🎙️ Ouvindo...", "assistente");
       reconhecimento.start();
     }
+
     reconhecimento.onresult = function(event) {
       const texto = event.results[0][0].transcript;
       if (chat.lastChild && chat.lastChild.innerText === "🎙️ Ouvindo...") {
@@ -314,6 +333,7 @@
       document.getElementById("pergunta").value = texto;
       enviarPergunta();
     }
+
     reconhecimento.onerror = function(event) {
       const erro = "❌ Erro no reconhecimento de voz: " + event.error;
       adicionarMensagem(erro, "assistente");
